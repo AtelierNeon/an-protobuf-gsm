@@ -1,5 +1,5 @@
 # Minimum CMake required
-cmake_minimum_required(VERSION 3.1.3)
+cmake_minimum_required(VERSION 3.1.3...3.15.0)
 
 if(protobuf_VERBOSE)
   message(STATUS "Protocol Buffers Configuring...")
@@ -29,6 +29,21 @@ else()
 endif()
 
 # Options
+option(PROTOBUF_WITH_SHARED_LIBRARIES "Build shared version of the Protocol Buffer libraries." OFF)
+option(PROTOBUF_WITH_SHARED_ZLIB "Build Protocol Buffer with shared version of Zlib." OFF)
+option(PROTOBUF_WITH_ZLIB "Build Protocol Buffer with Zlib." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_ALL "Build Protocol Buffer without installing all artifacts." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_FILES "Build Protocol Buffer without installing files." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_HEADERS "Build Protocol Buffer without installing headers." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_LIBRARIES "Build Protocol Buffer without installing libraries." OFF)
+option(PROTOBUF_WITHOUT_TEST_APPS "Build Protocol Buffer without test apps." OFF)
+
+if (PROTOBUF_WITH_SHARED_LIBRARIES)
+  set (BUILD_SHARED_LIBS ON)
+else()
+  set (BUILD_SHARED_LIBS OFF)
+endif()
+
 option(protobuf_BUILD_TESTS "Build tests" ON)
 option(protobuf_BUILD_CONFORMANCE "Build conformance tests" OFF)
 option(protobuf_BUILD_EXAMPLES "Build examples" OFF)
@@ -47,6 +62,13 @@ option(protobuf_WITH_ZLIB "Build with zlib support" ${protobuf_WITH_ZLIB_DEFAULT
 set(protobuf_DEBUG_POSTFIX "d"
   CACHE STRING "Default debug postfix")
 mark_as_advanced(protobuf_DEBUG_POSTFIX)
+
+if (PROTOBUF_WITHOUT_TEST_APPS)
+  set(protobuf_BUILD_TESTS OFF)
+else()
+  set(protobuf_BUILD_TESTS ON)
+endif()
+
 # User options
 include(protobuf-options.cmake)
 
@@ -89,7 +111,7 @@ if(protobuf_VERSION_PRERELEASE)
 else()
   set(protobuf_VERSION "${protobuf_VERSION}.0")
 endif()
-message(STATUS "${protobuf_VERSION}")
+message(STATUS "Protocol Buffer version ${protobuf_VERSION}")
 
 if(protobuf_VERBOSE)
   message(STATUS "Configuration script parsing status [")
@@ -108,7 +130,16 @@ endif (CMAKE_USE_PTHREADS_INIT)
 
 set(_protobuf_FIND_ZLIB)
 if (protobuf_WITH_ZLIB)
-  find_package(ZLIB)
+  if (PROTOBUF_WITH_SHARED_ZLIB)
+    set(PROTOBUF_WITH_ZLIB ON)
+  endif(PROTOBUF_WITH_SHARED_ZLIB)
+  if (PROTOBUF_WITH_ZLIB AND NOT PROTOBUF_WITH_SHARED_ZLIB)
+    set(ZLIB_USE_STATIC_LIBS ON)
+  endif(PROTOBUF_WITH_ZLIB AND NOT PROTOBUF_WITH_SHARED_ZLIB)
+  find_package(SiblingZLIB)
+  if (NOT ZLIB_FOUND)
+    find_package(ZLIB)
+  endif(NOT ZLIB_FOUND)
   if (ZLIB_FOUND)
     set(HAVE_ZLIB 1)
     # FindZLIB module define ZLIB_INCLUDE_DIRS variable
@@ -141,15 +172,15 @@ else (protobuf_BUILD_SHARED_LIBS)
   # https://msdn.microsoft.com/en-us/library/2kzt1wy3.aspx
   # This is achieved by replacing msvc option /MD with /MT and /MDd with /MTd
   # http://www.cmake.org/Wiki/CMake_FAQ#How_can_I_build_my_MSVC_application_with_a_static_runtime.3F
-  if (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
-    foreach(flag_var
-        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      if(${flag_var} MATCHES "/MD")
-        string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-      endif(${flag_var} MATCHES "/MD")
-    endforeach(flag_var)
-  endif (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
+  #if (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
+  #  foreach(flag_var
+  #      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+  #      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+  #    if(${flag_var} MATCHES "/MD")
+  #      string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+  #    endif(${flag_var} MATCHES "/MD")
+  #  endforeach(flag_var)
+  #endif (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
 endif (protobuf_BUILD_SHARED_LIBS)
 
 if (MSVC)
