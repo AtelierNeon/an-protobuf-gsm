@@ -28,6 +28,10 @@ else()
   set(CMAKE_CXX_EXTENSIONS OFF)
 endif()
 
+if(UNIX)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 # Options
 option(PROTOBUF_WITH_SHARED_LIBRARIES "Build shared version of the Protocol Buffer libraries." OFF)
 option(PROTOBUF_WITH_SHARED_ZLIB "Build Protocol Buffer with shared version of Zlib." OFF)
