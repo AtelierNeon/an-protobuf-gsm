@@ -243,7 +243,7 @@ set(lite_arena_test_files
 add_executable(lite-arena-test ${lite_arena_test_files} ${common_lite_test_files} ${lite_test_proto_files})
 target_link_libraries(lite-arena-test libprotobuf-lite gmock_main)
 
-add_custom_target(check
-  COMMAND tests
-  DEPENDS tests test_plugin
-  WORKING_DIRECTORY ${protobuf_source_dir})
+#add_custom_target(check
+#  COMMAND tests
+#  DEPENDS tests test_plugin
+#  WORKING_DIRECTORY ${protobuf_source_dir})
