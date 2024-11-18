@@ -218,8 +218,8 @@ if(MINGW)
 
 endif()
 
-add_executable(tests ${tests_files} ${common_test_files} ${tests_proto_files} ${lite_test_proto_files})
-target_link_libraries(tests libprotoc libprotobuf gmock_main)
+add_executable(protobuf_tests ${tests_files} ${common_test_files} ${tests_proto_files} ${lite_test_proto_files})
+target_link_libraries(protobuf_tests libprotoc libprotobuf gmock_main)
 
 set(test_plugin_files
   ${protobuf_source_dir}/src/google/protobuf/compiler/mock_code_generator.cc
@@ -243,7 +243,7 @@ set(lite_arena_test_files
 add_executable(lite-arena-test ${lite_arena_test_files} ${common_lite_test_files} ${lite_test_proto_files})
 target_link_libraries(lite-arena-test libprotobuf-lite gmock_main)
 
-add_custom_target(check
-  COMMAND tests
-  DEPENDS tests test_plugin
+add_custom_target(protobuf_check
+  COMMAND protobuf_tests
+  DEPENDS protobuf_tests test_plugin
   WORKING_DIRECTORY ${protobuf_source_dir})
