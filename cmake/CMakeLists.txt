@@ -33,6 +33,7 @@ if(UNIX)
 endif()
 
 # Options
+option(PROTOBUF_WITH_EXTERNAL_PROTOC "Build Protocol Buffer with external / host build of Protocol Buffer Compiler." OFF)
 option(PROTOBUF_WITH_SHARED_LIBRARIES "Build shared version of the Protocol Buffer libraries." OFF)
 option(PROTOBUF_WITH_SHARED_ZLIB "Build Protocol Buffer with shared version of Zlib." OFF)
 option(PROTOBUF_WITH_ZLIB "Build Protocol Buffer with Zlib." OFF)
