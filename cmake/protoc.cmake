@@ -10,7 +10,9 @@ endif()
 
 add_executable(protoc ${protoc_files} ${protoc_rc_files})
 target_link_libraries(protoc libprotoc libprotobuf)
-add_executable(protobuf::protoc ALIAS protoc)
+if (NOT PROTOBUF_WITH_EXTERNAL_PROTOC)
+  add_executable(protobuf::protoc ALIAS protoc)
+endif()
 
 set_target_properties(protoc PROPERTIES
     VERSION ${protobuf_VERSION})
