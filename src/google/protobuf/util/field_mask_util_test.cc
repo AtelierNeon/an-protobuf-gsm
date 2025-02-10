@@ -1,43 +1,20 @@
 // Protocol Buffers - Google's data interchange format
 // Copyright 2008 Google Inc.  All rights reserved.
-// https://developers.google.com/protocol-buffers/
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-//     * Neither the name of Google Inc. nor the names of its
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file or at
+// https://developers.google.com/open-source/licenses/bsd
 
-#include <google/protobuf/util/field_mask_util.h>
+#include "google/protobuf/util/field_mask_util.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <vector>
 
-#include <google/protobuf/stubs/logging.h>
-#include <google/protobuf/stubs/common.h>
-#include <google/protobuf/field_mask.pb.h>
-#include <google/protobuf/test_util.h>
-#include <google/protobuf/unittest.pb.h>
+#include "google/protobuf/field_mask.pb.h"
 #include <gtest/gtest.h>
+#include "google/protobuf/test_util.h"
+#include "google/protobuf/unittest.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -45,7 +22,7 @@ namespace util {
 
 class SnakeCaseCamelCaseTest : public ::testing::Test {
  protected:
-  string SnakeCaseToCamelCase(const std::string& input) {
+  std::string SnakeCaseToCamelCase(const std::string& input) {
     std::string output;
     if (FieldMaskUtil::SnakeCaseToCamelCase(input, &output)) {
       return output;
@@ -54,7 +31,7 @@ class SnakeCaseCamelCaseTest : public ::testing::Test {
     }
   }
 
-  string CamelCaseToSnakeCase(const std::string& input) {
+  std::string CamelCaseToSnakeCase(const std::string& input) {
     std::string output;
     if (FieldMaskUtil::CamelCaseToSnakeCase(input, &output)) {
       return output;
@@ -161,6 +138,20 @@ TEST(FieldMaskUtilTest, JsonStringFormat) {
   EXPECT_EQ("baz_quz", mask.paths(1));
 }
 
+TEST(FieldMaskUtilTest, FromFieldNumbers) {
+  FieldMask mask;
+  std::vector<int64_t> field_numbers = {
+      TestAllTypes::kOptionalInt64FieldNumber,
+      TestAllTypes::kOptionalBoolFieldNumber,
+      TestAllTypes::kRepeatedStringFieldNumber,
+  };
+  FieldMaskUtil::FromFieldNumbers<TestAllTypes>(field_numbers, &mask);
+  ASSERT_EQ(3, mask.paths_size());
+  EXPECT_EQ("optional_int64", mask.paths(0));
+  EXPECT_EQ("optional_bool", mask.paths(1));
+  EXPECT_EQ("repeated_string", mask.paths(2));
+}
+
 TEST(FieldMaskUtilTest, GetFieldDescriptors) {
   std::vector<const FieldDescriptor*> field_descriptors;
   EXPECT_TRUE(FieldMaskUtil::GetFieldDescriptors(
@@ -211,7 +202,7 @@ TEST(FieldMaskUtilTest, TestGetFieldMaskForAllFields) {
   EXPECT_TRUE(FieldMaskUtil::IsPathInFieldMask("bb", mask));
 
   mask = FieldMaskUtil::GetFieldMaskForAllFields<TestAllTypes>();
-  EXPECT_EQ(75, mask.paths_size());
+  EXPECT_EQ(79, mask.paths_size());
   EXPECT_TRUE(FieldMaskUtil::IsPathInFieldMask("optional_int32", mask));
   EXPECT_TRUE(FieldMaskUtil::IsPathInFieldMask("optional_int64", mask));
   EXPECT_TRUE(FieldMaskUtil::IsPathInFieldMask("optional_uint32", mask));
@@ -752,7 +743,7 @@ TEST(FieldMaskUtilTest, TrimMessageReturnValue) {
   // Field mask on optional field.
   FieldMaskUtil::FromString("optional_int32", &mask);
 
-  // Verify that if a message is updted by FieldMaskUtil::TrimMessage(), the
+  // Verify that if a message is updated by FieldMaskUtil::TrimMessage(), the
   // function returns true.
   // Test on primary field.
   trimed_msg.set_optional_string("abc");
@@ -793,7 +784,7 @@ TEST(FieldMaskUtilTest, TrimMessageReturnValue) {
   EXPECT_EQ(trimed_msg.optional_int32(), 123);
   trimed_msg.Clear();
 
-  // Field mask on repated field.
+  // Field mask on repeated field.
   FieldMaskUtil::FromString("repeated_string", &mask);
   trimed_msg.add_repeated_string("abc");
   trimed_msg.add_repeated_string("def");
@@ -809,7 +800,7 @@ TEST(FieldMaskUtilTest, TrimMessageReturnValue) {
   EXPECT_EQ(trimed_msg.optional_nested_message().bb(), 123);
   trimed_msg.Clear();
 
-  // TODO(b/32443320): field mask on repeated nested message is not yet
+  // TODO: field mask on repeated nested message is not yet
   // supported.
 }
 

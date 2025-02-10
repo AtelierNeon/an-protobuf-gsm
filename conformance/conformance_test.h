@@ -1,33 +1,9 @@
 // Protocol Buffers - Google's data interchange format
 // Copyright 2008 Google Inc.  All rights reserved.
-// https://developers.google.com/protocol-buffers/
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-//     * Neither the name of Google Inc. nor the names of its
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file or at
+// https://developers.google.com/open-source/licenses/bsd
 
 // This file defines a protocol for running the conformance test suite
 // in-process.  In other words, the suite itself will run in the same process as
@@ -40,13 +16,14 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/stubs/common.h>
-#include <google/protobuf/util/type_resolver.h>
-#include <google/protobuf/wire_format_lite.h>
-
-#include "conformance.pb.h"
+#include "google/protobuf/util/type_resolver.h"
+#include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_set.h"
+#include "conformance/conformance.pb.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/wire_format_lite.h"
 
 namespace conformance {
 class ConformanceRequest;
@@ -75,8 +52,7 @@ class ConformanceTestRunner {
   //
   // If there is any error in running the test itself, set "runtime_error" in
   // the response.
-  virtual void RunTest(const std::string& test_name,
-                       const std::string& input,
+  virtual void RunTest(const std::string& test_name, const std::string& input,
                        std::string* output) = 0;
 };
 
@@ -85,29 +61,38 @@ class ConformanceTestRunner {
 class ForkPipeRunner : public ConformanceTestRunner {
  public:
   // Note: Run() doesn't take ownership of the pointers inside suites.
-  static int Run(int argc, char *argv[],
+  static int Run(int argc, char* argv[],
                  const std::vector<ConformanceTestSuite*>& suites);
 
-  ForkPipeRunner(const std::string &executable)
+  ForkPipeRunner(const std::string& executable,
+                 const std::vector<std::string>& executable_args,
+                 bool performance)
+      : child_pid_(-1),
+        executable_(executable),
+        executable_args_(executable_args),
+        performance_(performance) {}
+
+  explicit ForkPipeRunner(const std::string& executable)
       : child_pid_(-1), executable_(executable) {}
 
   virtual ~ForkPipeRunner() {}
 
-  void RunTest(const std::string& test_name,
-               const std::string& request,
+  void RunTest(const std::string& test_name, const std::string& request,
                std::string* response);
 
  private:
   void SpawnTestProgram();
 
-  void CheckedWrite(int fd, const void *buf, size_t len);
-  bool TryRead(int fd, void *buf, size_t len);
-  void CheckedRead(int fd, void *buf, size_t len);
+  void CheckedWrite(int fd, const void* buf, size_t len);
+  bool TryRead(int fd, void* buf, size_t len);
+  void CheckedRead(int fd, void* buf, size_t len);
 
   int write_fd_;
   int read_fd_;
   pid_t child_pid_;
   std::string executable_;
+  const std::vector<std::string> executable_args_;
+  bool performance_;
   std::string current_test_name_;
 };
 
@@ -118,7 +103,7 @@ class ForkPipeRunner : public ConformanceTestRunner {
 //    class MyConformanceTestSuite : public ConformanceTestSuite {
 //     public:
 //      void RunSuiteImpl() {
-//        // INSERT ACTURAL TESTS.
+//        // INSERT ACTUAL TESTS.
 //      }
 //    };
 //
@@ -142,10 +127,12 @@ class ConformanceTestSuite {
  public:
   ConformanceTestSuite()
       : verbose_(false),
+        performance_(false),
         enforce_recommended_(false),
         failure_list_flag_name_("--failure_list") {}
   virtual ~ConformanceTestSuite() {}
 
+  void SetPerformance(bool performance) { performance_ = performance; }
   void SetVerbose(bool verbose) { verbose_ = verbose; }
 
   // Whether to require the testee to pass RECOMMENDED tests. By default failing
@@ -156,19 +143,18 @@ class ConformanceTestSuite {
   // can enable this if it wants to be strictly conforming to protobuf spec.
   // See the comments about ConformanceLevel below to learn more about the
   // difference between REQUIRED and RECOMMENDED test cases.
-  void SetEnforceRecommended(bool value) {
-    enforce_recommended_ = value;
-  }
+  void SetEnforceRecommended(bool value) { enforce_recommended_ = value; }
 
   // Gets the flag name to the failure list file.
   // By default, this would return --failure_list
-  string GetFailureListFlagName() {
-    return failure_list_flag_name_;
-  }
+  std::string GetFailureListFlagName() { return failure_list_flag_name_; }
 
   void SetFailureListFlagName(const std::string& failure_list_flag_name) {
     failure_list_flag_name_ = failure_list_flag_name;
   }
+
+  // Sets the path of the output directory.
+  void SetOutputDir(const char* output_dir) { output_dir_ = output_dir; }
 
   // Run all the conformance tests against the given test runner.
   // Test output will be stored in "output".
@@ -185,7 +171,7 @@ class ConformanceTestSuite {
   // Test cases are classified into a few categories:
   //   REQUIRED: the test case must be passed for an implementation to be
   //             interoperable with other implementations. For example, a
-  //             parser implementaiton must accept both packed and unpacked
+  //             parser implementation must accept both packed and unpacked
   //             form of repeated primitive fields.
   //   RECOMMENDED: the test case is not required for the implementation to
   //                be interoperable with other implementations, but is
@@ -201,28 +187,26 @@ class ConformanceTestSuite {
 
   class ConformanceRequestSetting {
    public:
-    ConformanceRequestSetting(
-        ConformanceLevel level,
-        conformance::WireFormat input_format,
-        conformance::WireFormat output_format,
-        conformance::TestCategory test_category,
-        const Message& prototype_message,
-        const string& test_name, const string& input);
+    ConformanceRequestSetting(ConformanceLevel level,
+                              conformance::WireFormat input_format,
+                              conformance::WireFormat output_format,
+                              conformance::TestCategory test_category,
+                              const Message& prototype_message,
+                              const std::string& test_name,
+                              const std::string& input);
     virtual ~ConformanceRequestSetting() {}
 
-    Message* GetTestMessage() const;
+    std::unique_ptr<Message> NewTestMessage() const;
 
-    string GetTestName() const;
+    std::string GetTestName() const;
 
     const conformance::ConformanceRequest& GetRequest() const {
       return request_;
     }
 
-    const ConformanceLevel GetLevel() const {
-      return level_;
-    }
+    const ConformanceLevel GetLevel() const { return level_; }
 
-    string ConformanceLevelToString(ConformanceLevel level) const;
+    std::string ConformanceLevelToString(ConformanceLevel level) const;
 
     void SetPrintUnknownFields(bool print_unknown_fields) {
       request_.set_print_unknown_fields(true);
@@ -233,8 +217,9 @@ class ConformanceTestSuite {
     }
 
    protected:
-    virtual string InputFormatString(conformance::WireFormat format) const;
-    virtual string OutputFormatString(conformance::WireFormat format) const;
+    virtual std::string InputFormatString(conformance::WireFormat format) const;
+    virtual std::string OutputFormatString(
+        conformance::WireFormat format) const;
     conformance::ConformanceRequest request_;
 
    private:
@@ -243,40 +228,42 @@ class ConformanceTestSuite {
     ::conformance::WireFormat output_format_;
     const Message& prototype_message_;
     std::unique_ptr<Message> prototype_message_for_compare_;
-    string test_name_;
+    std::string test_name_;
   };
 
-  bool CheckSetEmpty(const std::set<string>& set_to_check,
-                     const std::string& write_to_file, const std::string& msg);
-  string WireFormatToString(conformance::WireFormat wire_format);
+  std::string WireFormatToString(conformance::WireFormat wire_format);
 
   // Parse payload in the response to the given message. Returns true on
   // success.
-  virtual bool ParseResponse(
-      const conformance::ConformanceResponse& response,
-      const ConformanceRequestSetting& setting,
-      Message* test_message) = 0;
+  virtual bool ParseResponse(const conformance::ConformanceResponse& response,
+                             const ConformanceRequestSetting& setting,
+                             Message* test_message) = 0;
 
-  void VerifyResponse(
-      const ConformanceRequestSetting& setting,
-      const string& equivalent_wire_format,
-      const conformance::ConformanceResponse& response,
-      bool need_report_success);
+  void VerifyResponse(const ConformanceRequestSetting& setting,
+                      const std::string& equivalent_wire_format,
+                      const conformance::ConformanceResponse& response,
+                      bool need_report_success, bool require_same_wire_format);
+
+  void TruncateDebugPayload(std::string* payload);
+  const conformance::ConformanceRequest TruncateRequest(
+      const conformance::ConformanceRequest& request);
+  const conformance::ConformanceResponse TruncateResponse(
+      const conformance::ConformanceResponse& response);
 
   void ReportSuccess(const std::string& test_name);
-  void ReportFailure(const string& test_name,
-                     ConformanceLevel level,
+  void ReportFailure(const std::string& test_name, ConformanceLevel level,
                      const conformance::ConformanceRequest& request,
                      const conformance::ConformanceResponse& response,
-                     const char* fmt, ...);
-  void ReportSkip(const string& test_name,
+                     absl::string_view message);
+  void ReportSkip(const std::string& test_name,
                   const conformance::ConformanceRequest& request,
                   const conformance::ConformanceResponse& response);
 
   void RunValidInputTest(const ConformanceRequestSetting& setting,
-                         const string& equivalent_text_format);
+                         const std::string& equivalent_text_format);
   void RunValidBinaryInputTest(const ConformanceRequestSetting& setting,
-                               const string& equivalent_wire_format);
+                               const std::string& equivalent_wire_format,
+                               bool require_same_wire_format = false);
 
   void RunTest(const std::string& test_name,
                const conformance::ConformanceRequest& request,
@@ -290,27 +277,29 @@ class ConformanceTestSuite {
   int successes_;
   int expected_failures_;
   bool verbose_;
+  bool performance_;
   bool enforce_recommended_;
   std::string output_;
+  std::string output_dir_;
   std::string failure_list_flag_name_;
   std::string failure_list_filename_;
 
   // The set of test names that are expected to fail in this run, but haven't
   // failed yet.
-  std::set<std::string> expected_to_fail_;
+  absl::btree_set<std::string> expected_to_fail_;
 
   // The set of test names that have been run.  Used to ensure that there are no
   // duplicate names in the suite.
-  std::set<std::string> test_names_;
+  absl::flat_hash_set<std::string> test_names_;
 
   // The set of tests that failed, but weren't expected to.
-  std::set<std::string> unexpected_failing_tests_;
+  absl::btree_set<std::string> unexpected_failing_tests_;
 
   // The set of tests that succeeded, but weren't expected to.
-  std::set<std::string> unexpected_succeeding_tests_;
+  absl::btree_set<std::string> unexpected_succeeding_tests_;
 
   // The set of tests that the testee opted out of;
-  std::set<std::string> skipped_;
+  absl::btree_set<std::string> skipped_;
 };
 
 }  // namespace protobuf

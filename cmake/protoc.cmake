@@ -1,18 +1,14 @@
 set(protoc_files
-  ${protobuf_source_dir}/src/google/protobuf/compiler/main.cc
+  ${protobuf_SOURCE_DIR}/src/google/protobuf/compiler/main.cc
 )
 
-if (MSVC)
-set(protoc_rc_files
-  ${CMAKE_CURRENT_BINARY_DIR}/version.rc
+add_executable(protoc ${protoc_files} ${protobuf_version_rc_file})
+target_link_libraries(protoc
+  libprotoc
+  libprotobuf
+  ${protobuf_ABSL_USED_TARGETS}
 )
-endif()
-
-add_executable(protoc ${protoc_files} ${protoc_rc_files})
-target_link_libraries(protoc libprotoc libprotobuf)
-if (NOT PROTOBUF_WITH_EXTERNAL_PROTOC)
-  add_executable(protobuf::protoc ALIAS protoc)
-endif()
+add_executable(protobuf::protoc ALIAS protoc)
 
 set_target_properties(protoc PROPERTIES
     VERSION ${protobuf_VERSION})
