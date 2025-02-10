@@ -55,10 +55,10 @@ if (utf8_range_ENABLE_INSTALL)
   include(CMakePackageConfigHelpers)
   include(GNUInstallDirs)
 
-  install(EXPORT ${PROJECT_NAME}-targets
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
-    NAMESPACE utf8_range::
-  )
+  #install(EXPORT ${PROJECT_NAME}-targets
+  #  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+  #  NAMESPACE utf8_range::
+  #)
   install(TARGETS utf8_validity utf8_range EXPORT ${PROJECT_NAME}-targets
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

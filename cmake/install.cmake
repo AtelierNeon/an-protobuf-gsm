@@ -121,11 +121,11 @@ configure_file(${protobuf_SOURCE_DIR}/cmake/protobuf-generate.cmake
 
 # Allows the build directory to be used as a find directory.
 
-install(EXPORT protobuf-targets
-  DESTINATION "${CMAKE_INSTALL_CMAKEDIR}"
-  NAMESPACE protobuf::
-  COMPONENT protobuf-export
-)
+#install(EXPORT protobuf-targets
+#  DESTINATION "${CMAKE_INSTALL_CMAKEDIR}"
+#  NAMESPACE protobuf::
+#  COMPONENT protobuf-export
+#)
 
 install(DIRECTORY ${CMAKE_BUILD_CMAKEDIR}/
   DESTINATION "${CMAKE_INSTALL_CMAKEDIR}"

@@ -25,7 +25,7 @@ endif()
 
 # Options
 option(protobuf_INSTALL "Install protobuf binaries and files" ON)
-option(protobuf_BUILD_TESTS "Build tests" ON)
+option(protobuf_BUILD_TESTS "Build tests" OFF)
 option(protobuf_BUILD_CONFORMANCE "Build conformance tests" OFF)
 option(protobuf_BUILD_EXAMPLES "Build examples" OFF)
 option(protobuf_BUILD_PROTOBUF_BINARIES "Build protobuf libraries and protoc compiler" ON)
@@ -41,7 +41,7 @@ else (BUILD_SHARED_LIBS)
 endif (BUILD_SHARED_LIBS)
 option(protobuf_BUILD_SHARED_LIBS "Build Shared Libraries" ${protobuf_BUILD_SHARED_LIBS_DEFAULT})
 include(CMakeDependentOption)
-cmake_dependent_option(protobuf_MSVC_STATIC_RUNTIME "Link static runtime libraries" ON
+cmake_dependent_option(protobuf_MSVC_STATIC_RUNTIME "Link static runtime libraries" OFF
   "NOT protobuf_BUILD_SHARED_LIBS" OFF)
 set(protobuf_WITH_ZLIB_DEFAULT ON)
 option(protobuf_WITH_ZLIB "Build with zlib support" ${protobuf_WITH_ZLIB_DEFAULT})
