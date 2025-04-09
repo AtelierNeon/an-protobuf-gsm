@@ -158,7 +158,10 @@ endif()
 
 set(_protobuf_FIND_ZLIB)
 if (protobuf_WITH_ZLIB)
-  find_package(ZLIB)
+  find_package(SiblingZLIB)
+  if (NOT ZLIB_FOUND)
+    find_package(ZLIB)
+  endif ()
   if (ZLIB_FOUND)
     set(HAVE_ZLIB 1)
     # FindZLIB module define ZLIB_INCLUDE_DIRS variable

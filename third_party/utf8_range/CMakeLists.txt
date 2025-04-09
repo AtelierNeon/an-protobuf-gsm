@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.5...3.15.0)
 project (utf8_range C CXX)
 
 # option() honor variables
