@@ -34,6 +34,23 @@ option(protobuf_BUILD_LIBPROTOC "Build libprotoc" OFF)
 option(protobuf_DISABLE_RTTI "Remove runtime type information in the binaries" OFF)
 option(protobuf_TEST_XML_OUTDIR "Output directory for XML logs from tests." "")
 option(protobuf_ALLOW_CCACHE "Adjust build flags to allow for ccache support." OFF)
+
+option(PROTOBUF_WITH_EXTERNAL_PROTOC "Build Protocol Buffer with external / host build of Protocol Buffer Compiler." OFF)
+option(PROTOBUF_WITH_SHARED_LIBRARIES "Build shared version of the Protocol Buffer libraries." OFF)
+option(PROTOBUF_WITH_SHARED_ZLIB "Build Protocol Buffer with shared version of Zlib." OFF)
+option(PROTOBUF_WITH_ZLIB "Build Protocol Buffer with Zlib." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_ALL "Build Protocol Buffer without installing all artifacts." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_FILES "Build Protocol Buffer without installing files." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_HEADERS "Build Protocol Buffer without installing headers." OFF)
+option(PROTOBUF_WITHOUT_INSTALL_LIBRARIES "Build Protocol Buffer without installing libraries." OFF)
+option(PROTOBUF_WITHOUT_TEST_APPS "Build Protocol Buffer without test apps." OFF)
+
+if (PROTOBUF_WITH_SHARED_LIBRARIES)
+  set (BUILD_SHARED_LIBS ON)
+else()
+  set (BUILD_SHARED_LIBS OFF)
+endif()
+
 if (BUILD_SHARED_LIBS)
   set(protobuf_BUILD_SHARED_LIBS_DEFAULT ON)
 else (BUILD_SHARED_LIBS)
@@ -48,6 +65,12 @@ option(protobuf_WITH_ZLIB "Build with zlib support" ${protobuf_WITH_ZLIB_DEFAULT
 set(protobuf_DEBUG_POSTFIX "d"
   CACHE STRING "Default debug postfix")
 mark_as_advanced(protobuf_DEBUG_POSTFIX)
+
+if (PROTOBUF_WITHOUT_TEST_APPS)
+  set(protobuf_BUILD_TESTS OFF)
+else()
+  set(protobuf_BUILD_TESTS ON)
+endif()
 
 if(WITH_PROTOC)
   set(protobuf_PROTOC_EXE protoc)
@@ -158,7 +181,16 @@ endif()
 
 set(_protobuf_FIND_ZLIB)
 if (protobuf_WITH_ZLIB)
-  find_package(ZLIB)
+  if (PROTOBUF_WITH_SHARED_ZLIB)
+    set(PROTOBUF_WITH_ZLIB ON)
+  endif(PROTOBUF_WITH_SHARED_ZLIB)
+  if (PROTOBUF_WITH_ZLIB AND NOT PROTOBUF_WITH_SHARED_ZLIB)
+    set(ZLIB_USE_STATIC_LIBS ON)
+  endif(PROTOBUF_WITH_ZLIB AND NOT PROTOBUF_WITH_SHARED_ZLIB)
+  find_package(SiblingZLIB)
+  if (NOT ZLIB_FOUND)
+    find_package(ZLIB)
+  endif(NOT ZLIB_FOUND)
   if (ZLIB_FOUND)
     set(HAVE_ZLIB 1)
     # FindZLIB module define ZLIB_INCLUDE_DIRS variable
@@ -206,26 +238,26 @@ else (protobuf_BUILD_SHARED_LIBS)
   # making programmatic control difficult.  Prefer the functionality in newer
   # CMake versions when available.
   if(${CMAKE_VERSION} VERSION_GREATER 3.15 OR ${CMAKE_VERSION} VERSION_EQUAL 3.15)
-    if (protobuf_MSVC_STATIC_RUNTIME)
-        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
-    else()
-        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>DLL)
-    endif()
+    #if (protobuf_MSVC_STATIC_RUNTIME)
+    #    set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)
+    #else()
+    #    set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>DLL)
+    #endif()
   else()
     # In case we are building static libraries, link also the runtime library statically
     # so that MSVCR*.DLL is not required at runtime.
     # https://msdn.microsoft.com/en-us/library/2kzt1wy3.aspx
     # This is achieved by replacing msvc option /MD with /MT and /MDd with /MTd
     # http://www.cmake.org/Wiki/CMake_FAQ#How_can_I_build_my_MSVC_application_with_a_static_runtime.3F
-    if (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
-      foreach(flag_var
-          CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-          CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-        if(${flag_var} MATCHES "/MD")
-          string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-        endif(${flag_var} MATCHES "/MD")
-      endforeach(flag_var)
-    endif (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
+    #if (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
+    #  foreach(flag_var
+    #      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+    #      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    #    if(${flag_var} MATCHES "/MD")
+    #      string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+    #    endif(${flag_var} MATCHES "/MD")
+    #  endforeach(flag_var)
+    #endif (MSVC AND protobuf_MSVC_STATIC_RUNTIME)
   endif()
 endif (protobuf_BUILD_SHARED_LIBS)
 

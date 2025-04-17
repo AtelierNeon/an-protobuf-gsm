@@ -39,26 +39,32 @@ foreach(_library ${_protobuf_libraries})
     set_property(TARGET ${_library}
       PROPERTY INSTALL_RPATH "@loader_path")
   endif()
-  install(TARGETS ${_library} EXPORT protobuf-targets
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT ${_library}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ${_library}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ${_library})
+  if (NOT PROTOBUF_WITHOUT_INSTALL_LIBRARIES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+    install(TARGETS ${_library} EXPORT protobuf-targets
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT ${_library}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ${_library}
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ${_library})
+  endif()
 endforeach()
 
-if (protobuf_BUILD_PROTOC_BINARIES)
-  install(TARGETS protoc EXPORT protobuf-targets
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT protoc
-    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT protoc)
-  if (UNIX AND NOT APPLE)
-    set_property(TARGET protoc
-      PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
-  elseif (APPLE)
-    set_property(TARGET protoc
-      PROPERTY INSTALL_RPATH "@loader_path/../lib")
-  endif()
-endif (protobuf_BUILD_PROTOC_BINARIES)
+#if (protobuf_BUILD_PROTOC_BINARIES)
+#  if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+#    install(TARGETS protoc EXPORT protobuf-targets
+#      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT protoc
+#      BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT protoc)
+#    if (UNIX AND NOT APPLE)
+#      set_property(TARGET protoc
+#        PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+#    elseif (APPLE)
+#      set_property(TARGET protoc
+#        PROPERTY INSTALL_RPATH "@loader_path/../lib")
+#    endif()
+#  endif()
+#endif (protobuf_BUILD_PROTOC_BINARIES)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/protobuf.pc ${CMAKE_CURRENT_BINARY_DIR}/protobuf-lite.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/protobuf.pc ${CMAKE_CURRENT_BINARY_DIR}/protobuf-lite.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+endif()
 
 include(${protobuf_SOURCE_DIR}/src/file_lists.cmake)
 set(protobuf_HEADERS
@@ -82,10 +88,12 @@ foreach(_header ${protobuf_HEADERS})
   get_filename_component(_extract_from "${_from_dir}/${_header}" ABSOLUTE)
   get_filename_component(_extract_name ${_header} NAME)
   get_filename_component(_extract_to "${CMAKE_INSTALL_INCLUDEDIR}/${_header}" DIRECTORY)
-  install(FILES "${_extract_from}"
-    DESTINATION "${_extract_to}"
-    COMPONENT protobuf-headers
-    RENAME "${_extract_name}")
+  if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+    install(FILES "${_extract_from}"
+      DESTINATION "${_extract_to}"
+      COMPONENT protobuf-headers
+      RENAME "${_extract_name}")
+  endif()
 endforeach()
 
 # Install configuration
@@ -127,22 +135,26 @@ configure_file(${protobuf_SOURCE_DIR}/cmake/protobuf-generate.cmake
 #  COMPONENT protobuf-export
 #)
 
-install(DIRECTORY ${CMAKE_BUILD_CMAKEDIR}/
-  DESTINATION "${CMAKE_INSTALL_CMAKEDIR}"
-  COMPONENT protobuf-export
-  PATTERN protobuf-targets.cmake EXCLUDE
-)
+if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+  install(DIRECTORY ${CMAKE_BUILD_CMAKEDIR}/
+    DESTINATION "${CMAKE_INSTALL_CMAKEDIR}"
+    COMPONENT protobuf-export
+    PATTERN protobuf-targets.cmake EXCLUDE
+  )
+endif()
 
 option(protobuf_INSTALL_EXAMPLES "Install the examples folder" OFF)
 if(protobuf_INSTALL_EXAMPLES)
-  install(DIRECTORY examples/
-    DESTINATION "${CMAKE_INSTALL_EXAMPLEDIR}"
-    COMPONENT protobuf-examples)
+  if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+    install(DIRECTORY examples/
+      DESTINATION "${CMAKE_INSTALL_EXAMPLEDIR}"
+      COMPONENT protobuf-examples)
+  endif()
 endif()
 
-if (protobuf_INSTALL_TESTS)
-  install(TARGETS gmock EXPORT protobuf-targets
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
+#if (protobuf_INSTALL_TESTS)
+#  install(TARGETS gmock EXPORT protobuf-targets
+#    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+#endif()
