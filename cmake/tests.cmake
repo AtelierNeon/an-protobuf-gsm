@@ -111,13 +111,13 @@ if(protobuf_BUILD_SHARED_LIBS)
     PRIVATE LIBPROTOBUF_TEST_EXPORTS)
 endif()
 
-add_executable(tests ${tests_files} ${common_test_files})
+add_executable(protobuf_tests ${tests_files} ${common_test_files})
 if (MSVC)
-  target_compile_options(tests PRIVATE
+  target_compile_options(protobuf_tests PRIVATE
     /wd4146 # unary minus operator applied to unsigned type, result still unsigned
   )
 endif()
-target_link_libraries(tests
+target_link_libraries(protobuf_tests
   libtest_common
   libtest_common_lite
   ${protobuf_LIB_PROTOC}
@@ -183,12 +183,12 @@ add_test(NAME lite-test
   WORKING_DIRECTORY ${protobuf_SOURCE_DIR})
 
 add_custom_target(full-test
-  COMMAND tests
-  DEPENDS tests lite-test fake_plugin test_plugin
+  COMMAND protobuf_tests
+  DEPENDS protobuf_tests lite-test fake_plugin test_plugin
   WORKING_DIRECTORY ${protobuf_SOURCE_DIR})
 
 add_test(NAME full-test
-  COMMAND tests ${protobuf_GTEST_ARGS}
+  COMMAND protobuf_tests ${protobuf_GTEST_ARGS}
   WORKING_DIRECTORY ${protobuf_SOURCE_DIR})
 
 # For test purposes, remove headers that should already be installed.  This

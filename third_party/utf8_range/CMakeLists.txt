@@ -59,28 +59,36 @@ if (utf8_range_ENABLE_INSTALL)
   #  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
   #  NAMESPACE utf8_range::
   #)
-  install(TARGETS utf8_validity utf8_range EXPORT ${PROJECT_NAME}-targets
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  )
+  if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+    install(TARGETS utf8_validity utf8_range EXPORT ${PROJECT_NAME}-targets
+          RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+          LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+  endif ()
 
   configure_package_config_file(
     cmake/${PROJECT_NAME}-config.cmake.in
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
     INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
   )
-  install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
-  )
+  if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+    install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+      DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+    )
+  endif ()
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/utf8_range.pc.cmake
                  ${CMAKE_CURRENT_BINARY_DIR}/utf8_range.pc @ONLY)
-  install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/utf8_range.pc
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+  if (NOT PROTOBUF_WITHOUT_INSTALL_FILES AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+    install(
+      FILES ${CMAKE_CURRENT_BINARY_DIR}/utf8_range.pc
+      DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+  endif ()
 
   # Install public headers explicitly.
-  install(FILES utf8_range.h utf8_validity.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  )
+  if (NOT PROTOBUF_WITHOUT_INSTALL_HEADERS AND NOT PROTOBUF_WITHOUT_INSTALL_ALL)
+    install(FILES utf8_range.h utf8_validity.h
+      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+  endif ()
 endif ()
