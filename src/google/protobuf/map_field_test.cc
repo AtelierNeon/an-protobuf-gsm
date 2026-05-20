@@ -135,7 +135,7 @@ TEST_P(MapFieldBasePrimitiveTest, Arena) {
     // repeated fields are allocated from arenas.
     // NoHeapChecker no_heap;
 
-    MapFieldType* map_field = Arena::CreateMessage<MapFieldType>(&arena);
+    MapFieldType* map_field = Arena::Create<MapFieldType>(&arena);
 
     // Set content in map
     (*map_field->MutableMap())[100] = 101;
@@ -149,7 +149,7 @@ TEST_P(MapFieldBasePrimitiveTest, Arena) {
     // repeated fields are allocated from arenas.
     // NoHeapChecker no_heap;
 
-    TestMapField* map_field = Arena::CreateMessage<TestMapField>(&arena);
+    TestMapField* map_field = Arena::Create<TestMapField>(&arena);
 
     // Trigger conversion to repeated field.
     EXPECT_TRUE(map_field->MutableRepeatedField() != nullptr);
@@ -160,8 +160,7 @@ TEST_P(MapFieldBasePrimitiveTest, Arena) {
 }
 
 TEST_P(MapFieldBasePrimitiveTest, EnforceNoArena) {
-  std::unique_ptr<TestMapField> map_field(
-      Arena::CreateMessage<TestMapField>(nullptr));
+  std::unique_ptr<TestMapField> map_field(Arena::Create<TestMapField>(nullptr));
   EXPECT_EQ(MapFieldTestPeer::GetArena(map_field->GetRepeatedField()), nullptr);
 }
 
@@ -453,7 +452,21 @@ TEST(MapFieldTest, ConstInit) {
   EXPECT_EQ(field.size(), 0);
 }
 
+TEST(MapFieldTest, MutableMapDoesNotAllocatePayload) {
+  struct MaybePayload : MapFieldBase {
+    // Use a derived type to get access to the protected method.
+    // We steal the function pointer here to use below to inspect the instance.
+    static constexpr auto getter() { return &MaybePayload::maybe_payload; }
+  };
+  MyMapField field;
+  EXPECT_FALSE((field.*MaybePayload::getter())());
+  field.MutableMap();
+  EXPECT_FALSE((field.*MaybePayload::getter())());
+}
+
 
 }  // namespace internal
 }  // namespace protobuf
 }  // namespace google
+
+#include "google/protobuf/port_undef.inc"

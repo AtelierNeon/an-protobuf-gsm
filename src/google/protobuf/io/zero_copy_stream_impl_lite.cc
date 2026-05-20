@@ -120,7 +120,7 @@ int64_t ArrayOutputStream::ByteCount() const { return position_; }
 StringOutputStream::StringOutputStream(std::string* target) : target_(target) {}
 
 bool StringOutputStream::Next(void** data, int* size) {
-  ABSL_CHECK(target_ != NULL);
+  ABSL_CHECK(target_ != nullptr);
   size_t old_size = target_->size();
 
   // Grow the string.
@@ -148,13 +148,13 @@ bool StringOutputStream::Next(void** data, int* size) {
 
 void StringOutputStream::BackUp(int count) {
   ABSL_CHECK_GE(count, 0);
-  ABSL_CHECK(target_ != NULL);
+  ABSL_CHECK(target_ != nullptr);
   ABSL_CHECK_LE(static_cast<size_t>(count), target_->size());
   target_->resize(target_->size() - count);
 }
 
 int64_t StringOutputStream::ByteCount() const {
-  ABSL_CHECK(target_ != NULL);
+  ABSL_CHECK(target_ != nullptr);
   return target_->size();
 }
 
@@ -617,7 +617,7 @@ bool CordOutputStream::Next(void** data, int* size) {
     case State::kFull:
       assert(buffer_.length() > 0);
       cord_.Append(std::move(buffer_));
-      PROTOBUF_FALLTHROUGH_INTENDED;
+      ABSL_FALLTHROUGH_INTENDED;
     case State::kEmpty:
       assert(buffer_.length() == 0);
       buffer_ = absl::CordBuffer::CreateWithDefaultLimit(desired_size);
@@ -683,3 +683,5 @@ absl::Cord CordOutputStream::Consume() {
 }  // namespace io
 }  // namespace protobuf
 }  // namespace google
+
+#include "google/protobuf/port_undef.inc"

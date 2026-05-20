@@ -77,18 +77,20 @@ typedef struct GPBFileDescription {
   GPBFileSyntax syntax;
 } GPBFileDescription;
 
+// Fetches an EnumDescriptor.
+typedef GPBEnumDescriptor *(*GPBEnumDescriptorFunc)(void);
+
 // Describes a single field in a protobuf as it is represented as an ivar.
 typedef struct GPBMessageFieldDescription {
   // Name of ivar.
+  // Note that we looked into using a SEL here instead (which really is just a C string)
+  // but there is not a way to initialize an SEL with a constant (@selector is not constant) so the
+  // additional code generated to initialize the value is actually bigger in size than just using a
+  // C identifier for large apps.
   const char *name;
   union {
-    // className is deprecated and will be removed in favor of clazz.
-    // kept around right now for backwards compatibility.
-    // clazz is used iff GPBDescriptorInitializationFlag_UsesClassRefs is set.
-    char *className;  // Name of the class of the message.
-    Class clazz;      // Class of the message.
-    // For enums only.
-    GPBEnumDescriptorFunc enumDescFunc;
+    Class clazz;                         // Class of the message.
+    GPBEnumDescriptorFunc enumDescFunc;  // Function to get the enum descriptor.
   } dataTypeSpecific;
   // The field number for the ivar.
   uint32_t number;
@@ -127,29 +129,16 @@ typedef NS_OPTIONS(uint8_t, GPBExtensionOptions) {
 typedef struct GPBExtensionDescription {
   GPBGenericValue defaultValue;
   const char *singletonName;
-  // Before 3.12, `extendedClass` was just a `const char *`. Thanks to nested
-  // initialization
-  // (https://en.cppreference.com/w/c/language/struct_initialization#Nested_initialization) old
-  // generated code with `.extendedClass = GPBStringifySymbol(Something)` still works; and the
-  // current generator can use `extendedClass.clazz`, to pass a Class reference.
+  // Historically this had more than one entry, but the union name is referenced in the generated
+  // code so it can't be removed without breaking compatibility.
   union {
-    const char *name;
     Class clazz;
   } extendedClass;
-  // Before 3.12, this was `const char *messageOrGroupClassName`. In the
-  // initial 3.12 release, we moved the `union messageOrGroupClass`, and failed
-  // to realize that would break existing source code for extensions. So to
-  // keep existing source code working, we added an unnamed union (C11) to
-  // provide both the old field name and the new union. This keeps both older
-  // and newer code working.
-  // Background: https://github.com/protocolbuffers/protobuf/issues/7555
+  // Historically this had more than one entry, but the union name is referenced in the generated
+  // code so it can't be removed without breaking compatibility.
   union {
-    const char *messageOrGroupClassName;
-    union {
-      const char *name;
-      Class clazz;
-    } messageOrGroupClass;
-  };
+    Class clazz;
+  } messageOrGroupClass;
   GPBEnumDescriptorFunc enumDescriptorFunc;
   int32_t fieldNumber;
   GPBDataType dataType;
@@ -205,51 +194,19 @@ typedef NS_OPTIONS(uint32_t, GPBDescriptorInitializationFlags) {
 - (void)setupExtensionRanges:(const GPBExtensionRange *)ranges count:(int32_t)count;
 - (void)setupContainingMessageClass:(Class)msgClass;
 
-// Deprecated, these remain to support older versions of source generation.
-+ (instancetype)allocDescriptorForClass:(Class)messageClass
-                                   file:(GPBFileDescriptor *)file
-                                 fields:(void *)fieldDescriptions
-                             fieldCount:(uint32_t)fieldCount
-                            storageSize:(uint32_t)storageSize
-                                  flags:(GPBDescriptorInitializationFlags)flags;
-+ (instancetype)allocDescriptorForClass:(Class)messageClass
-                              rootClass:(Class)rootClass
-                                   file:(GPBFileDescriptor *)file
-                                 fields:(void *)fieldDescriptions
-                             fieldCount:(uint32_t)fieldCount
-                            storageSize:(uint32_t)storageSize
-                                  flags:(GPBDescriptorInitializationFlags)flags;
-- (void)setupContainingMessageClassName:(const char *)msgClassName;
-- (void)setupMessageClassNameSuffix:(NSString *)suffix;
-
-@end
-
-@interface GPBFileDescriptor ()
-- (instancetype)initWithPackage:(NSString *)package
-                     objcPrefix:(NSString *)objcPrefix
-                         syntax:(GPBFileSyntax)syntax;
-- (instancetype)initWithPackage:(NSString *)package syntax:(GPBFileSyntax)syntax;
 @end
 
 @interface GPBOneofDescriptor () {
  @package
   const char *name_;
   NSArray *fields_;
-  SEL caseSel_;
 }
-// name must be long lived.
-- (instancetype)initWithName:(const char *)name fields:(NSArray *)fields;
 @end
 
 @interface GPBFieldDescriptor () {
  @package
   GPBMessageFieldDescription *description_;
   GPB_UNSAFE_UNRETAINED GPBOneofDescriptor *containingOneof_;
-
-  SEL getSel_;
-  SEL setSel_;
-  SEL hasOrCountSel_;  // *Count for map<>/repeated fields, has* otherwise.
-  SEL setHasSel_;
 }
 @end
 
@@ -279,18 +236,7 @@ typedef NS_OPTIONS(uint32_t, GPBEnumDescriptorInitializationFlags) {
                                  flags:(GPBEnumDescriptorInitializationFlags)flags
                    extraTextFormatInfo:(const char *)extraTextFormatInfo;
 
-// Deprecated, these remain to support older versions of source generation.
-+ (instancetype)allocDescriptorForName:(NSString *)name
-                            valueNames:(const char *)valueNames
-                                values:(const int32_t *)values
-                                 count:(uint32_t)valueCount
-                          enumVerifier:(GPBEnumValidationFunc)enumVerifier;
-+ (instancetype)allocDescriptorForName:(NSString *)name
-                            valueNames:(const char *)valueNames
-                                values:(const int32_t *)values
-                                 count:(uint32_t)valueCount
-                          enumVerifier:(GPBEnumValidationFunc)enumVerifier
-                   extraTextFormatInfo:(const char *)extraTextFormatInfo;
+- (BOOL)isOpenOrValidValue:(int32_t)value;
 @end
 
 @interface GPBExtensionDescriptor () {
@@ -308,8 +254,6 @@ typedef NS_OPTIONS(uint32_t, GPBEnumDescriptorInitializationFlags) {
 // description has to be long lived, it is held as a raw pointer.
 - (instancetype)initWithExtensionDescription:(GPBExtensionDescription *)desc
                                usesClassRefs:(BOOL)usesClassRefs;
-// Deprecated. Calls above with `usesClassRefs = NO`
-- (instancetype)initWithExtensionDescription:(GPBExtensionDescription *)desc;
 
 - (NSComparisonResult)compareByFieldNumber:(GPBExtensionDescriptor *)other;
 @end
@@ -336,10 +280,6 @@ GPB_INLINE int32_t GPBFieldHasIndex(GPBFieldDescriptor *field) {
 
 GPB_INLINE uint32_t GPBFieldNumber(GPBFieldDescriptor *field) {
   return field->description_->number;
-}
-
-GPB_INLINE BOOL GPBFieldIsClosedEnum(GPBFieldDescriptor *field) {
-  return (field->description_->flags & GPBFieldClosedEnum) != 0;
 }
 
 #pragma clang diagnostic pop

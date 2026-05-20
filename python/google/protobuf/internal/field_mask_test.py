@@ -53,7 +53,7 @@ class FieldMaskTest(unittest.TestCase):
     mask = field_mask_pb2.FieldMask()
     msg_descriptor = unittest_pb2.TestAllTypes.DESCRIPTOR
     mask.AllFieldsFromDescriptor(msg_descriptor)
-    self.assertEqual(79, len(mask.paths))
+    self.assertEqual(80, len(mask.paths))
     self.assertTrue(mask.IsValidForDescriptor(msg_descriptor))
     for field in msg_descriptor.fields:
       self.assertTrue(field.name in mask.paths)
@@ -323,7 +323,7 @@ class FieldMaskTest(unittest.TestCase):
     with self.assertRaises(ValueError) as e:
       mask.MergeMessage(src, dst)
     self.assertEqual('Error: Field optional_int32 in message '
-                     'protobuf_unittest.TestAllTypes is not a singular '
+                     'proto2_unittest.TestAllTypes is not a singular '
                      'message field and cannot have sub-fields.',
                      str(e.exception))
 

@@ -15,15 +15,16 @@
 #ifndef GOOGLE_PROTOBUF_GENERATED_MESSAGE_REFLECTION_H__
 #define GOOGLE_PROTOBUF_GENERATED_MESSAGE_REFLECTION_H__
 
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 
-#include "google/protobuf/stubs/common.h"
 #include "absl/base/call_once.h"
-#include "absl/base/casts.h"
-#include "absl/strings/string_view.h"
+#include "absl/base/optimization.h"
+#include "absl/log/absl_check.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/generated_enum_reflection.h"
-#include "google/protobuf/port.h"
 #include "google/protobuf/unknown_field_set.h"
 
 // Must be included last.
@@ -40,6 +41,10 @@ class MapValueRef;
 class MessageLayoutInspector;
 class Message;
 struct Metadata;
+
+namespace io {
+class CodedOutputStream;
+}
 }  // namespace protobuf
 }  // namespace google
 
@@ -143,10 +148,15 @@ struct ReflectionSchema {
                sizeof(uint32_t));
   }
 
+  // Returns true iff the field object has usable hasbit offset.
+  // Note that this is not necessarily correlated with *field presence* :
+  // Fields with implicit presence (i.e. ones that don't expose has_foo API)
+  // can still have hasbits in their underlying implementation.
   bool HasHasbits() const { return has_bits_offset_ != -1; }
 
   // Bit index within the bit array of hasbits.  Bit order is low-to-high.
   uint32_t HasBitIndex(const FieldDescriptor* field) const {
+    ABSL_DCHECK(!field->is_extension());
     if (has_bits_offset_ == -1) return static_cast<uint32_t>(-1);
     ABSL_DCHECK(HasHasbits());
     return has_bit_indices_[field->index()];
@@ -305,7 +315,6 @@ struct PROTOBUF_EXPORT DescriptorTable {
   const Message* const* default_instances;
   const uint32_t* offsets;
   // update the following descriptor arrays.
-  Metadata* file_level_metadata;
   const EnumDescriptor** file_level_enum_descriptors;
   const ServiceDescriptor** file_level_service_descriptors;
 };
@@ -316,14 +325,9 @@ struct PROTOBUF_EXPORT DescriptorTable {
 // called the first time anyone calls descriptor() or GetReflection() on one of
 // the types defined in the file.  AssignDescriptors() is thread-safe.
 void PROTOBUF_EXPORT AssignDescriptors(const DescriptorTable* table);
-
-// Overload used to implement GetMetadataStatic in the generated code.
-// See comments in compiler/cpp/file.cc as to why.
-// It takes a `Metadata` and returns it to allow for tail calls and reduce
-// binary size.
-Metadata PROTOBUF_EXPORT AssignDescriptors(const DescriptorTable* (*table)(),
-                                           absl::once_flag* once,
-                                           const Metadata& metadata);
+// As above, but the caller did the call_once call already.
+void PROTOBUF_EXPORT
+AssignDescriptorsOnceInnerCall(const DescriptorTable* table);
 
 // These cannot be in lite so we put them in the reflection.
 PROTOBUF_EXPORT void UnknownFieldSetSerializer(const uint8_t* base,
@@ -333,9 +337,18 @@ PROTOBUF_EXPORT void UnknownFieldSetSerializer(const uint8_t* base,
 
 PROTOBUF_EXPORT void InitializeFileDescriptorDefaultInstances();
 
+PROTOBUF_EXPORT void AddDescriptors(const DescriptorTable* table);
+
 struct PROTOBUF_EXPORT AddDescriptorsRunner {
   explicit AddDescriptorsRunner(const DescriptorTable* table);
 };
+
+// Retrieves the existing prototype out of a descriptor table.
+// If it doesn't exist:
+//  - If force_build is true, asks the generated message factory for one.
+//  - Otherwise, return null
+const Message* GetPrototypeForWeakDescriptor(const DescriptorTable* table,
+                                             int index, bool force_build);
 
 struct DenseEnumCacheInfo {
   std::atomic<const std::string**> cache;
@@ -357,8 +370,8 @@ const std::string& NameOfDenseEnum(int v) {
   static DenseEnumCacheInfo deci = {/* atomic ptr */ {}, min_val, max_val,
                                     descriptor_fn};
   const std::string** cache = deci.cache.load(std::memory_order_acquire );
-  if (PROTOBUF_PREDICT_TRUE(cache != nullptr)) {
-    if (PROTOBUF_PREDICT_TRUE(v >= min_val && v <= max_val)) {
+  if (ABSL_PREDICT_TRUE(cache != nullptr)) {
+    if (ABSL_PREDICT_TRUE(v >= min_val && v <= max_val)) {
       return *cache[v - min_val];
     }
   }

@@ -1,36 +1,26 @@
 // Protocol Buffers - Google's data interchange format
 // Copyright 2023 Google LLC.  All rights reserved.
-// https://developers.google.com/protocol-buffers/
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-//     * Neither the name of Google LLC nor the names of its
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file or at
+// https://developers.google.com/open-source/licenses/bsd
 
 #include "upb/message/internal/map_sorter.h"
 
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "upb/base/descriptor_constants.h"
 #include "upb/base/internal/log2.h"
+#include "upb/base/string_view.h"
+#include "upb/hash/common.h"
+#include "upb/mem/alloc.h"
+#include "upb/message/internal/extension.h"
+#include "upb/message/internal/map.h"
+#include "upb/message/internal/message.h"
+#include "upb/message/map.h"
+#include "upb/mini_table/extension.h"
 
 // Must be last.
 #include "upb/port/def.inc"
@@ -113,8 +103,10 @@ static bool _upb_mapsorter_resize(_upb_mapsorter* s, _upb_sortedmap* sorted,
   sorted->end = sorted->start + size;
 
   if (sorted->end > s->cap) {
-    s->cap = upb_Log2CeilingSize(sorted->end);
-    s->entries = realloc(s->entries, s->cap * sizeof(*s->entries));
+    const int oldsize = s->cap * sizeof(*s->entries);
+    s->cap = upb_RoundUpToPowerOfTwo(sorted->end);
+    const int newsize = s->cap * sizeof(*s->entries);
+    s->entries = upb_grealloc(s->entries, oldsize, newsize);
     if (!s->entries) return false;
   }
 
@@ -125,6 +117,7 @@ static bool _upb_mapsorter_resize(_upb_mapsorter* s, _upb_sortedmap* sorted,
 bool _upb_mapsorter_pushmap(_upb_mapsorter* s, upb_FieldType key_type,
                             const upb_Map* map, _upb_sortedmap* sorted) {
   int map_size = _upb_Map_Size(map);
+  UPB_ASSERT(map_size);
 
   if (!_upb_mapsorter_resize(s, sorted, map_size)) return false;
 
@@ -147,23 +140,30 @@ bool _upb_mapsorter_pushmap(_upb_mapsorter* s, upb_FieldType key_type,
 }
 
 static int _upb_mapsorter_cmpext(const void* _a, const void* _b) {
-  const upb_Message_Extension* const* a = _a;
-  const upb_Message_Extension* const* b = _b;
-  uint32_t a_num = (*a)->ext->field.number;
-  uint32_t b_num = (*b)->ext->field.number;
+  const upb_Extension* const* a = _a;
+  const upb_Extension* const* b = _b;
+  uint32_t a_num = upb_MiniTableExtension_Number((*a)->ext);
+  uint32_t b_num = upb_MiniTableExtension_Number((*b)->ext);
   assert(a_num != b_num);
   return a_num < b_num ? -1 : 1;
 }
 
-bool _upb_mapsorter_pushexts(_upb_mapsorter* s,
-                             const upb_Message_Extension* exts, size_t count,
+bool _upb_mapsorter_pushexts(_upb_mapsorter* s, const upb_Message_Internal* in,
                              _upb_sortedmap* sorted) {
-  if (!_upb_mapsorter_resize(s, sorted, count)) return false;
-
-  for (size_t i = 0; i < count; i++) {
-    s->entries[sorted->start + i] = &exts[i];
+  size_t count = 0;
+  for (size_t i = 0; i < in->size; i++) {
+    count += upb_TaggedAuxPtr_IsExtension(in->aux_data[i]);
   }
-
+  if (!_upb_mapsorter_resize(s, sorted, count)) return false;
+  if (count == 0) return true;
+  const upb_Extension** entry =
+      (const upb_Extension**)&s->entries[sorted->start];
+  for (size_t i = 0; i < in->size; i++) {
+    upb_TaggedAuxPtr tagged_ptr = in->aux_data[i];
+    if (upb_TaggedAuxPtr_IsExtension(tagged_ptr)) {
+      *entry++ = upb_TaggedAuxPtr_Extension(tagged_ptr);
+    }
+  }
   qsort(&s->entries[sorted->start], count, sizeof(*s->entries),
         _upb_mapsorter_cmpext);
   return true;
